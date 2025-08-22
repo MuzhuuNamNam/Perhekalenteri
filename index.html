@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Perhekalenteri</title>
+  <title>Perhekalenteri – Firestore (v3)</title>
   <style>
     :root{--bg:#f7f7f8;--card:#fff;--border:#e5e7eb;--text:#111827;--muted:#6b7280;--primary:#2563eb;--radius:16px}
     *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Noto Sans",sans-serif}
@@ -20,9 +20,14 @@
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .input,.select,.textarea{width:100%;border:1px solid var(--border);border-radius:12px;padding:10px 12px;font-size:14px}
     .textarea{min-height:80px;resize:vertical} .hint{font-size:12px;color:var(--muted)}
-    .list .day{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border)}
+    .list .day{display:grid;grid-template-columns:120px 1fr 1fr;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--border)}
     .list .day:first-child{border-top:none}
-    .tag{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;color:#fff;font-size:12px;box-shadow:0 1px 1px rgba(0,0,0,.12);border:1px solid rgba(0,0,0,.06)}
+    .datecell{display:flex;align-items:center;gap:6px;justify-content:flex-end}
+    .snippetlist{display:flex;flex-direction:column;gap:6px}
+    .snippet{font-size:12px;color:#111827;background:#f3f4f6;border:1px solid var(--border);border-radius:8px;padding:6px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .tags{display:flex;flex-direction:column;gap:6px}
+    .tagline{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+    .tag{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;color:#fff;font-size:12px;box-shadow:0 1px 1px rgba(0,0,0,.12);border:1px solid rgba(0,0,0,.06);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .muted{color:var(--muted);font-size:12px}
     .month{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
     .weekday{font-size:12px;color:var(--muted);text-align:center}
@@ -41,6 +46,10 @@
     .dialog{background:#fff;border:1px solid var(--border);border-radius:16px;max-width:520px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.2)}
     .dialog .card-header{border-bottom:1px solid var(--border)}
     .hidden{display:none}
+    .names{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    @media(min-width:480px){.names{grid-template-columns:repeat(3,minmax(0,1fr));}}
+    .nameopt{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:10px;padding:8px;background:#fff}
+    .nameopt input{accent-color:#111827}
   </style>
 </head>
 <body>
@@ -60,31 +69,12 @@
       <section class="card">
         <div class="card-header"><div class="card-title">Lisää merkintä</div></div>
         <div class="card-content">
-          <div class="row">
-            <div class="field">
-              <label>Nimi / Nimet</label>
-              <select id="f_names" class="select" multiple size="6">
-                <option value="Jonne">Jonne (Oranssi)</option>
-                <option value="Laura">Laura (Liila)</option>
-                <option value="Ella">Ella (Vaalea rosa)</option>
-                <option value="Konsta">Konsta (Sininen)</option>
-                <option value="Eetu">Eetu (Vihreä)</option>
-                <option value="Muu">Muu (Punainen)</option>
-              </select>
-              <div class="hint" style="margin-top:6px">Tietokoneella Ctrl pohjaan + klikkaus valitsee useita.</div>
-              <div id="otherWrap" class="hidden" style="margin-top:8px">
-                <input id="f_other" class="input" placeholder="Kirjoita Muu-nimi (esim. 'Isovanhemmat', 'Työpaikka')">
-                <div class="hint" style="margin-top:6px">Muu-merkinnät punaisella.</div>
-              </div>
-            </div>
-            <div class="field">
-              <label>Toistettavuus</label>
-              <select id="f_rec" class="select">
-                <option value="once">Kertaluontainen</option>
-                <option value="weekly">Viikoittain</option>
-                <option value="monthly">Kuukausittain</option>
-                <option value="range">Aikaväli (voimassaolo)</option>
-              </select>
+          <div class="field">
+            <label style="display:block;margin-bottom:6px">Nimi / Nimet</label>
+            <div class="names" id="nameChoices"></div>
+            <div id="otherWrap" class="hidden" style="margin-top:8px">
+              <input id="f_other" class="input" placeholder="Kirjoita Muu-nimi (esim. 'Isovanhemmat', 'Työpaikka')">
+              <div class="hint" style="margin-top:6px">Muu-merkinnät punaisella.</div>
             </div>
           </div>
 
@@ -100,6 +90,16 @@
           </div>
 
           <div class="field" style="margin-top:12px">
+            <label>Toistettavuus</label>
+            <select id="f_rec" class="select">
+              <option value="once">Kertaluontainen</option>
+              <option value="weekly">Viikoittain</option>
+              <option value="monthly">Kuukausittain</option>
+              <option value="range">Aikaväli (voimassaolo)</option>
+            </select>
+          </div>
+
+          <div class="field" style="margin-top:12px">
             <label>Merkintä</label>
             <textarea id="f_note" class="textarea" placeholder="Esim. Jalkapallo-ottelu klo 18 alkaen"></textarea>
           </div>
@@ -110,7 +110,7 @@
           </div>
 
           <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
-            <div class="muted" style="font-size:14px;margin-bottom:8px">Tallennetut säännöt: (<span id="ruleCount">0</span>)</div>
+            <div class="muted" style="font-size:14px;margin-bottom:8px">Tallennetut säännöt (<span id="ruleCount">0</span>)</div>
             <div id="rules" class="rules"></div>
           </div>
         </div>
@@ -164,7 +164,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
   <script>
-    const firebaseConfig = {   
+    const firebaseConfig = {       
       apiKey: "AIzaSyBAyyY8dfRHjMdXF1VyI4hDQayRePPCsZw",
       authDomain: "perhekalenteri-6954b.firebaseapp.com",
       projectId: "perhekalenteri-6954b",
@@ -174,12 +174,13 @@
       measurementId: "G-035S78NYJY" };
 
     const COLORS = {Jonne:'#f97316', Laura:'#8b5cf6', Ella:'#fbcfe8', Konsta:'#3b82f6', Eetu:'#22c55e', Muu:'#ef4444'};
+    const PRESETS = ['Jonne','Laura','Ella','Konsta','Eetu','Muu'];
     const $=sel=>document.querySelector(sel);
     const toISO = d => { const y=d.getFullYear(), m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2); return y+'-'+m+'-'+day; }
     const fromISO = iso => { const [y,m,d]=iso.split('-').map(Number); return new Date(y,(m||1)-1,d||1); }
     const fmt = (d, opts={}) => { const wd=['sunnuntai','maanantai','tiistai','keskiviikko','torstai','perjantai','lauantai']; const mo=['tammikuu','helmikuu','maaliskuu','huhtikuu','toukokuu','kesäkuu','heinäkuu','elokuu','syyskuu','lokakuu','marraskuu','joulukuu']; const day=d.getDate(),m=d.getMonth(),y=d.getFullYear(); if(opts.weekdayLong) return wd[d.getDay()]+' '+day+'.'+(m+1)+'.'+y; if(opts.monthYear) return mo[m]+' '+y; return day+'.'+(m+1)+'.'+y; }
-    function addDays(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
-    function addMonths(d,n){ const r=new Date(d); r.setMonth(r.getMonth()+n); return r; }
+    function addDays(d,n){ const r=new Date(d); r.setDate(d.getDate()+n); return r; }
+    function addMonths(d,n){ const r=new Date(d); r.setMonth(d.getMonth()+n); return r; }
     function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
     function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
     function isSameDay(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
@@ -197,9 +198,37 @@
     const col = db.collection('events');
     let events=[], listAnchorISO = toISO(addDays(new Date(), -2)), monthRef = startOfMonth(new Date());
 
+    function renderNameChoices(){
+      const wrap = document.getElementById('nameChoices'); wrap.innerHTML='';
+      PRESETS.forEach(name => {
+        const color = getColorFor(name);
+        const id = 'nm_'+name;
+        const label = document.createElement('label');
+        label.className = 'nameopt';
+        label.innerHTML = `<input type="checkbox" id="${id}" data-name="${name}">
+          <span class="swatch" style="background:${color}"></span><span>${name}</span>`;
+        wrap.appendChild(label);
+      });
+      wrap.addEventListener('change', e => {
+        const anyOther = Array.from(wrap.querySelectorAll('input[data-name="Muu"]')).some(inp=>inp.checked);
+        document.getElementById('otherWrap').classList.toggle('hidden', !anyOther);
+      });
+    }
+    function selectedNames(){
+      const checked = Array.from(document.querySelectorAll('#nameChoices input[type=checkbox]'))
+        .filter(inp=>inp.checked)
+        .map(inp=>inp.getAttribute('data-name'));
+      const names = checked.filter(n=>n!=='Muu');
+      if(checked.includes('Muu')){
+        const t = (document.getElementById('f_other').value || '').trim();
+        if(t) names.push(t); else names.push('Muu');
+      }
+      return names;
+    }
+
     function occursOnDate(base, dayISO){ const start=fromISO(base.startDate), day=fromISO(dayISO); if(base.recurrence!=='range' && isBefore(day,start)) return false;
       switch(base.recurrence){ case 'once': return isSameDay(start,day); case 'weekly': return start.getDay()===day.getDay() && !isBefore(day,start); case 'monthly': { const want=Math.min(start.getDate(), endOfMonth(day).getDate()); return want===day.getDate() && !isBefore(day,start); } case 'range': { const end=fromISO(base.rangeEnd||base.startDate); const s=new Date(start.getFullYear(),start.getMonth(),start.getDate()); const e=new Date(end.getFullYear(),end.getMonth(),end.getDate()); const d0=new Date(day.getFullYear(),day.getMonth(),day.getDate()); return (d0>=s && d0<=e); } } }
-    function occurrencesForRange(bases, startISO, endISO){ const out=[]; let cur=fromISO(startISO); const end=fromISO(endISO); while(!isAfter(cur,end)){ const iso=toISO(cur); for(const b of bases){ if(occursOnDate(b, iso)) out.push({baseId:b.id, date:iso, names:b.names, note:b.note}); } cur=addDays(cur,1); } return out; }
+    function occurrencesForRange(bases, startISO, endISO){ const out=[]; let cur=fromISO(startISO); const end=fromISO(endISO); while(!isAfter(cur,end)){ const iso=toISO(cur); for(const b of bases){ if(occursOnDate(b, iso)) out.push({baseId:b.id, date:iso, names:b.names, note:b.note||''}); } cur=addDays(cur,1); } return out; }
 
     function renderRules(){ const box=$('#rules'); box.innerHTML=''; $('#ruleCount').textContent=String(events.length);
       for(const e of events){ const el=document.createElement('div'); el.className='rule'; const info=document.createElement('div');
@@ -209,14 +238,44 @@
           ${e.note?`<div style="margin-top:4px">${e.note}</div>`:''}`;
         const del=document.createElement('button'); del.className='iconbtn'; del.title='Poista'; del.textContent='🗑'; del.onclick=()=>col.doc(e.id).delete().catch(console.error);
         el.appendChild(info); el.appendChild(del); box.appendChild(el); } }
-    function renderList(){ const listStart=fromISO(listAnchorISO), listEnd=addDays(listStart,35); $('#listRange').textContent=fmt(listStart)+' – '+fmt(listEnd); const occ=occurrencesForRange(events,toISO(listStart),toISO(listEnd)); const box=$('#listView'); box.innerHTML='';
-      for(let i=0;i<=Math.round((listEnd-listStart)/86400000);i++){ const day=addDays(listStart,i), iso=toISO(day), today=isSameDay(day,new Date()); const row=document.createElement('div'); row.className='day';
-        const left=document.createElement('div'); left.style.display='flex'; left.style.alignItems='center'; left.style.gap='8px';
-        left.innerHTML=`<div style="width:64px;text-align:right;font-weight:600">${['su','ma','ti','ke','to','pe','la'][day.getDay()]} ${day.getDate()}.${day.getMonth()+1}.</div><div class="muted" style="min-width:40px">${today?'(tänään)':''}</div>`;
-        const right=document.createElement('div'); right.style.display='flex'; right.style.flexWrap='wrap'; right.style.gap='8px';
-        const dayOcc=occ.filter(o=>o.date===iso); if(dayOcc.length===0){ const span=document.createElement('span'); span.className='muted'; span.textContent='— ei merkintöjä —'; right.appendChild(span); }
-        for(const o of dayOcc){ const b=document.createElement('button'); b.className='tag'; b.style.background=gradientFor(o.names); const light=o.names.some(n=>getColorFor(n).toLowerCase()==='#fbcfe8'); b.style.color=light && o.names.length===1 ? '#111827' : '#ffffff'; b.textContent=joinedLabel(o.names); b.onclick=()=>openDialog(o); right.appendChild(b); }
-        row.appendChild(left); row.appendChild(right); box.appendChild(row); } }
+
+    function renderList(){ const listStart=fromISO(listAnchorISO), listEnd=addDays(listStart,35); $('#listRange').textContent=fmt(listStart)+' – '+fmt(listEnd);
+      const occ=occurrencesForRange(events,toISO(listStart),toISO(listEnd)); const box=$('#listView'); box.innerHTML='';
+      const byDay = occ.reduce((m,o)=>{ (m[o.date]||(m[o.date]=[])).push(o); return m; }, {});
+      const dayCount = Math.round((listEnd-listStart)/86400000);
+      for(let i=0;i<=dayCount;i++){
+        const day = addDays(listStart, i), iso = toISO(day), today=isSameDay(day,new Date());
+        const row = document.createElement('div'); row.className='day';
+        const left = document.createElement('div'); left.className='datecell';
+        left.innerHTML = `<div style="font-weight:600">${['su','ma','ti','ke','to','pe','la'][day.getDay()]} ${day.getDate()}.${day.getMonth()+1}.</div><div class="muted" style="min-width:40px">${today?'(tänään)':''}</div>`;
+        row.appendChild(left);
+        const mid = document.createElement('div'); mid.className='snippetlist';
+        const right = document.createElement('div'); right.className='tags';
+        const items = byDay[iso] || [];
+        if(items.length===0){
+          const span=document.createElement('span'); span.className='muted'; span.textContent='— ei merkintöjä —';
+          mid.appendChild(span);
+        } else {
+          for(const o of items){
+            const snippet = (o.note||'').slice(0,35);
+            const sn = document.createElement('div'); sn.className='snippet'; sn.textContent = snippet + ((o.note||'').length>35?'…':'');
+            mid.appendChild(sn);
+
+            const tagline = document.createElement('div'); tagline.className='tagline';
+            const b=document.createElement('button'); b.className='tag';
+            b.style.background = gradientFor(o.names);
+            const hasLight = o.names.some(n=>getColorFor(n).toLowerCase()==='#fbcfe8');
+            b.style.color = hasLight && o.names.length===1 ? '#111827' : '#ffffff';
+            b.textContent = joinedLabel(o.names);
+            b.onclick=()=>openDialog(o);
+            tagline.appendChild(b);
+            right.appendChild(tagline);
+          }
+        }
+        row.appendChild(mid); row.appendChild(right); box.appendChild(row);
+      }
+    }
+
     function renderMonth(){ const start=startOfMonth(monthRef), end=endOfMonth(monthRef); $('#monthTitle').textContent=fmt(start,{monthYear:true}); $('#monthPicker').value=toISO(start).slice(0,7); const grid=$('#monthGrid'); grid.innerHTML='';
       ['Ma','Ti','Ke','To','Pe','La','Su'].forEach(w=>{ const d=document.createElement('div'); d.className='weekday'; d.textContent=w; grid.appendChild(d); });
       const padStart=((start.getDay()+6)%7); const days=[]; for(let i=0;i<padStart;i++) days.push(addDays(start,-(padStart-i))); let cur=new Date(start); while(!isAfter(cur,end)){ days.push(new Date(cur)); cur=addDays(cur,1); } while(days.length%7!==0) days.push(addDays(end, days.length%7));
@@ -225,30 +284,34 @@
         const badges=document.createElement('div'); badges.className='badges'; const items=(map[iso]||[]).slice(0,4); if(items.length===0){ const dash=document.createElement('span'); dash.className='muted'; dash.style.fontSize='10px'; dash.textContent='—'; badges.appendChild(dash); }
         for(const o of items){ const b=document.createElement('button'); b.className='tag'; b.style.fontSize='10px'; b.style.background=gradientFor(o.names); const light=o.names.some(n=>getColorFor(n).toLowerCase()==='#fbcfe8'); b.style.color=light && o.names.length===1 ? '#111827' : '#ffffff'; b.textContent=joinedLabel(o.names); b.title=o.note||joinedLabel(o.names); b.onclick=()=>openDialog(o); badges.appendChild(b); }
         cell.appendChild(head); cell.appendChild(badges); grid.appendChild(cell); } }
+
     function openDialog(o){ const colors=o.names.slice(0,5).map(n=>`<span class="swatch" title="${n}" style="background:${getColorFor(n)}"></span>`).join(''); $('#dlgTitle').innerHTML=`<span class="colors">${colors}</span>${joinedLabel(o.names)}`; $('#dlgDate').textContent=fmt(fromISO(o.date),{weekdayLong:true}); $('#dlgNote').textContent=o.note||'(ei lisätietoja)'; $('#dlgBackdrop').style.display='flex'; }
     function closeDialog(){ $('#dlgBackdrop').style.display='none'; } $('#dlgClose').onclick=closeDialog; $('#dlgBackdrop').onclick=(e)=>{ if(e.target.id==='dlgBackdrop') closeDialog(); };
 
-    function selectedNames(){ const sel=document.getElementById('f_names'); const chosen=Array.from(sel.selectedOptions).map(o=>o.value); const names=chosen.filter(n=>n!=='Muu'); if(chosen.includes('Muu')){ const t=(document.getElementById('f_other').value||'').trim(); if(t) names.push(t); else names.push('Muu'); } return names; }
+    function init(){
+      renderNameChoices();
+      document.getElementById('f_date').value = toISO(new Date());
+      document.getElementById('f_rec').addEventListener('change', e => {
+        document.getElementById('f_range_wrap').style.display = e.target.value==='range' ? 'block' : 'none';
+      });
+      document.getElementById('btnToday').onclick=()=>{ listAnchorISO = toISO(addDays(new Date(), -2)); renderList(); };
+      document.getElementById('btnThisMonth').onclick=()=>{ monthRef = startOfMonth(new Date()); renderMonth(); };
+      document.getElementById('listBack').onclick=()=>{ listAnchorISO = toISO(addDays(fromISO(listAnchorISO), -36)); renderList(); };
+      document.getElementById('listFwd').onclick=()=>{ listAnchorISO = toISO(addDays(fromISO(listAnchorISO), 36)); renderList(); };
+      document.getElementById('monthBack').onclick=()=>{ monthRef = addMonths(monthRef, -1); renderMonth(); };
+      document.getElementById('monthFwd').onclick=()=>{ monthRef = addMonths(monthRef, 1); renderMonth(); };
+      document.getElementById('monthPicker').addEventListener('change', e => { const [y,m]=e.target.value.split('-').map(Number); if(y&&m) monthRef=new Date(y,m-1,1); renderMonth(); });
 
-    document.getElementById('f_rec').addEventListener('change', e => { document.getElementById('f_range_wrap').style.display = e.target.value==='range' ? 'block' : 'none'; });
-    document.getElementById('f_names').addEventListener('change', e => { const chosen = Array.from(e.target.selectedOptions).map(o=>o.value); document.getElementById('otherWrap').classList.toggle('hidden', !chosen.includes('Muu')); });
-    document.getElementById('f_date').value = toISO(new Date());
-    document.getElementById('btnToday').onclick=()=>{ listAnchorISO = toISO(addDays(new Date(), -2)); renderList(); };
-    document.getElementById('btnThisMonth').onclick=()=>{ monthRef = startOfMonth(new Date()); renderMonth(); };
-    document.getElementById('listBack').onclick=()=>{ listAnchorISO = toISO(addDays(fromISO(listAnchorISO), -36)); renderList(); };
-    document.getElementById('listFwd').onclick=()=>{ listAnchorISO = toISO(addDays(fromISO(listAnchorISO), 36)); renderList(); };
-    document.getElementById('monthBack').onclick=()=>{ monthRef = addMonths(monthRef, -1); renderMonth(); };
-    document.getElementById('monthFwd').onclick=()=>{ monthRef = addMonths(monthRef, 1); renderMonth(); };
-    document.getElementById('monthPicker').addEventListener('change', e => { const [y,m]=e.target.value.split('-').map(Number); if(y&&m) monthRef=new Date(y,m-1,1); renderMonth(); });
+      col.onSnapshot(snap => { events=[]; snap.forEach(doc => { const d=doc.data()||{}; events.push({ id:doc.id, names:d.names||[], startDate:d.startDate, recurrence:d.recurrence, rangeEnd:d.rangeEnd, note:d.note||'' }); }); renderRules(); renderList(); renderMonth(); });
 
-    col.onSnapshot(snap => { events=[]; snap.forEach(doc => { const d=doc.data()||{}; events.push({ id:doc.id, names:d.names||[], startDate:d.startDate, recurrence:d.recurrence, rangeEnd:d.rangeEnd, note:d.note||'' }); }); renderRules(); renderList(); renderMonth(); });
-
-    document.getElementById('btnAdd').addEventListener('click', async () => {
-      const names = selectedNames(); const date=$('#f_date').value; const rec=$('#f_rec').value; const rangeEnd=$('#f_end').value; const note=$('#f_note').value.trim();
-      if(names.length===0){ alert('Valitse vähintään yksi nimi (tai Muu).'); return; } if(!date){ alert('Anna aloituspäivä.'); return; }
-      const payload={ names, startDate:date, recurrence:rec, note }; if(rec==='range') payload.rangeEnd = rangeEnd || date;
-      try{ const ref=await col.add(payload); await ref.update({ id: ref.id }); } catch(e){ alert('Tallennus epäonnistui: '+e.message); console.error(e); }
-    });
+      document.getElementById('btnAdd').addEventListener('click', async () => {
+        const names = selectedNames(); const date=$('#f_date').value; const rec=$('#f_rec').value; const rangeEnd=$('#f_end').value; const note=$('#f_note').value.trim();
+        if(names.length===0){ alert('Valitse vähintään yksi nimi (tai Muu).'); return; } if(!date){ alert('Anna aloituspäivä.'); return; }
+        const payload={ names, startDate:date, recurrence:rec, note }; if(rec==='range') payload.rangeEnd = rangeEnd || date;
+        try{ const ref=await col.add(payload); await ref.update({ id: ref.id }); } catch(e){ alert('Tallennus epäonnistui: '+e.message); console.error(e); }
+      });
+    }
+    init();
   </script>
 </body>
 </html>
