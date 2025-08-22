@@ -3,34 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Perhekalenteri</title>
+  <title>Perhekalenteri – Firestore (vakaa versio)</title>
   <style>
-    :root{
-      --bg:#f7f7f8; --card:#ffffff; --border:#e5e7eb; --text:#111827; --muted:#6b7280; --primary:#2563eb;
-      --radius:16px;
-    }
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Noto Sans",sans-serif}
+    :root{--bg:#f7f7f8;--card:#fff;--border:#e5e7eb;--text:#111827;--muted:#6b7280;--primary:#2563eb;--radius:16px}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Noto Sans",sans-serif}
     .container{max-width:1100px;margin:0 auto;padding:16px}
-    header{position:sticky;top:0;background:rgba(255,255,255,0.8);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border);z-index:10}
+    header{position:sticky;top:0;background:rgba(255,255,255,.8);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border);z-index:10}
     header .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;max-width:1100px;margin:0 auto}
     .brand{display:flex;align-items:center;gap:8px;font-weight:600}
     .btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;border-radius:12px;padding:8px 12px;font-size:14px;cursor:pointer}
-    .btn:hover{background:#f3f4f6}
-    .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
-    .grid{display:grid;grid-template-columns:1fr;gap:16px}
-    @media(min-width:1024px){.grid{grid-template-columns:1fr 2fr}}
+    .btn:hover{background:#f3f4f6} .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+    .grid{display:grid;grid-template-columns:1fr;gap:16px} @media(min-width:1024px){.grid{grid-template-columns:1fr 2fr}}
     .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 1px 2px rgba(0,0,0,.04)}
     .card-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
-    .card-title{font-weight:600}
-    .card-content{padding:16px}
+    .card-title{font-weight:600} .card-content{padding:16px}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .input,.select,.textarea{width:100%;border:1px solid var(--border);border-radius:12px;padding:10px 12px;font-size:14px}
-    .textarea{min-height:80px;resize:vertical}
-    .hint{font-size:12px;color:var(--muted)}
+    .textarea{min-height:80px;resize:vertical} .hint{font-size:12px;color:var(--muted)}
     .list .day{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border)}
     .list .day:first-child{border-top:none}
-    .tag{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;color:#fff;font-size:12px;box-shadow:0 1px 1px rgba(0,0,0,.12)}
+    .tag{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;color:#fff;font-size:12px;box-shadow:0 1px 1px rgba(0,0,0,.12);border:1px solid rgba(0,0,0,.06)}
     .muted{color:var(--muted);font-size:12px}
     .month{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
     .weekday{font-size:12px;color:var(--muted);text-align:center}
@@ -41,6 +33,8 @@
     .badges{display:flex;gap:4px;flex-wrap:wrap}
     .rules{max-height:220px;overflow:auto}
     .rule{display:flex;justify-content:space-between;gap:8px;border:1px solid var(--border);border-radius:12px;padding:8px}
+    .rule .colors{display:inline-flex;gap:2px;vertical-align:middle;margin-right:6px}
+    .swatch{width:10px;height:10px;border-radius:999px;display:inline-block;border:1px solid rgba(0,0,0,.1)}
     .iconbtn{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:10px;background:#fff;cursor:pointer}
     .iconbtn:hover{background:#f3f4f6}
     .dialog-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.3);display:none;align-items:center;justify-content:center;padding:20px}
@@ -52,24 +46,48 @@
 <body>
   <header>
     <div class="bar">
-      <div class="brand">📅 Perhekalenteri</div>
+      <div class="brand">📅 Perhekalenteri – Firestore</div>
       <div class="actions">
         <button class="btn" id="btnToday">Tänään</button>
         <button class="btn" id="btnThisMonth">Kuluva kuukausi</button>
+        <span class="hint" id="authHint"></span>
       </div>
     </div>
   </header>
 
   <main class="container">
     <div class="grid">
-      <!-- Form card -->
       <section class="card">
         <div class="card-header"><div class="card-title">Lisää merkintä</div></div>
         <div class="card-content">
-          <div class="field">
-            <label>Nimi</label>
-            <input id="f_name" class="input" placeholder="Esim. Markku">
+          <div class="row">
+            <div class="field">
+              <label>Nimi / Nimet</label>
+              <select id="f_names" class="select" multiple size="6">
+                <option value="Jonne">Jonne (Oranssi)</option>
+                <option value="Laura">Laura (Liila)</option>
+                <option value="Ella">Ella (Vaalea rosa)</option>
+                <option value="Konsta">Konsta (Sininen)</option>
+                <option value="Eetu">Eetu (Vihreä)</option>
+                <option value="Muu">Muu (Punainen)</option>
+              </select>
+              <div class="hint" style="margin-top:6px">Ctrl/⌘ + klikkaus valitsee useita.</div>
+              <div id="otherWrap" class="hidden" style="margin-top:8px">
+                <input id="f_other" class="input" placeholder="Kirjoita Muu-nimi (esim. 'Isovanhemmat', 'Työpaikka')">
+                <div class="hint" style="margin-top:6px">Muu-merkinnät punaisella.</div>
+              </div>
+            </div>
+            <div class="field">
+              <label>Toistettavuus</label>
+              <select id="f_rec" class="select">
+                <option value="once">Kertaluontainen</option>
+                <option value="weekly">Viikoittain</option>
+                <option value="monthly">Kuukausittain</option>
+                <option value="range">Aikaväli (voimassaolo)</option>
+              </select>
+            </div>
           </div>
+
           <div class="row" style="margin-top:12px">
             <div class="field">
               <label>Päivämäärä (alku)</label>
@@ -80,22 +98,15 @@
               <input id="f_end" type="date" class="input">
             </div>
           </div>
-          <div class="field" style="margin-top:12px">
-            <label>Toistettavuus</label>
-            <select id="f_rec" class="select">
-              <option value="once">Kertaluontainen</option>
-              <option value="weekly">Viikoittain</option>
-              <option value="monthly">Kuukausittain</option>
-              <option value="range">Aikaväli (voimassaolo)</option>
-            </select>
-          </div>
+
           <div class="field" style="margin-top:12px">
             <label>Merkintä</label>
             <textarea id="f_note" class="textarea" placeholder="Esim. Jalkapallo-ottelu klo 18 alkaen"></textarea>
           </div>
+
           <div class="field" style="margin-top:12px;display:flex;align-items:center;gap:8px">
             <button id="btnAdd" class="btn primary">➕ Lisää</button>
-            <span class="hint">Vinkki: Nimen väri määräytyy automaattisesti.</span>
+            <span class="hint">Synkronoituu Firestoreen reaaliajassa.</span>
           </div>
 
           <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
@@ -105,7 +116,6 @@
         </div>
       </section>
 
-      <!-- Views -->
       <section class="card">
         <div class="card-header">
           <div class="card-title">Seuraavat ~kuukausi</div>
@@ -134,7 +144,6 @@
     </div>
   </main>
 
-  <!-- Dialog -->
   <div class="dialog-backdrop" id="dlgBackdrop">
     <div class="dialog">
       <div class="card-header">
@@ -142,7 +151,7 @@
         <div class="muted" id="dlgDate"></div>
       </div>
       <div class="card-content">
-        <div id="dlgNote" style="white-space:pre-wrap" class="card" ></div>
+        <div id="dlgNote" style="white-space:pre-wrap" class="card"></div>
         <div style="display:flex;justify-content:flex-end;margin-top:12px">
           <button class="btn" id="dlgClose">Sulje</button>
         </div>
@@ -150,227 +159,96 @@
     </div>
   </div>
 
-  <script>
-    // --- Utilities ---
-    const LS_KEY='family-calendar.events.v1';
-    const $=sel=>document.querySelector(sel);
-    const $$=sel=>Array.from(document.querySelectorAll(sel));
-    const fiWeekdays=['Su','Ma','Ti','Ke','To','Pe','La']; // Date.getDay() order
-    const uiWeek=['Ma','Ti','Ke','To','Pe','La','Su'];
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
-    const toISO = d => {
-      const y=d.getFullYear(), m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2);
-      return y+'-'+m+'-'+day;
-    }
-    const fromISO = iso => {
-      const [y,m,d]=iso.split('-').map(Number);
-      return new Date(y, (m||1)-1, d||1);
-    }
-    const fmt = (d, opts={}) => {
-      // Simple Finnish-like formatters
-      const weekdays = ['sunnuntai','maanantai','tiistai','keskiviikko','torstai','perjantai','lauantai'];
-      const months = ['tammikuu','helmikuu','maaliskuu','huhtikuu','toukokuu','kesäkuu','heinäkuu','elokuu','syyskuu','lokakuu','marraskuu','joulukuu'];
-      const day=d.getDate(), month=d.getMonth(), year=d.getFullYear();
-      if(opts.weekdayLong) return weekdays[d.getDay()]+' '+day+'.'+(month+1)+'.'+year;
-      if(opts.monthYear) return months[month]+' '+year;
-      return day+'.'+(month+1)+'.'+year;
-    }
+  <script>
+    const firebaseConfig = {   
+      apiKey: "AIzaSyBAyyY8dfRHjMdXF1VyI4hDQayRePPCsZw",
+      authDomain: "perhekalenteri-6954b.firebaseapp.com",
+      projectId: "perhekalenteri-6954b",
+      storageBucket: "perhekalenteri-6954b.firebasestorage.app",
+      messagingSenderId: "536077007093",
+      appId: "1:536077007093:web:52f4e25133e986a8f06dbc",
+      measurementId: "G-035S78NYJY" };
+
+    const COLORS = {Jonne:'#f97316', Laura:'#8b5cf6', Ella:'#fbcfe8', Konsta:'#3b82f6', Eetu:'#22c55e', Muu:'#ef4444'};
+    const $=sel=>document.querySelector(sel);
+    const toISO = d => { const y=d.getFullYear(), m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2); return y+'-'+m+'-'+day; }
+    const fromISO = iso => { const [y,m,d]=iso.split('-').map(Number); return new Date(y,(m||1)-1,d||1); }
+    const fmt = (d, opts={}) => { const wd=['sunnuntai','maanantai','tiistai','keskiviikko','torstai','perjantai','lauantai']; const mo=['tammikuu','helmikuu','maaliskuu','huhtikuu','toukokuu','kesäkuu','heinäkuu','elokuu','syyskuu','lokakuu','marraskuu','joulukuu']; const day=d.getDate(),m=d.getMonth(),y=d.getFullYear(); if(opts.weekdayLong) return wd[d.getDay()]+' '+day+'.'+(m+1)+'.'+y; if(opts.monthYear) return mo[m]+' '+y; return day+'.'+(m+1)+'.'+y; }
     function addDays(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
     function addMonths(d,n){ const r=new Date(d); r.setMonth(r.getMonth()+n); return r; }
     function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
     function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
     function isSameDay(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
     function isSameMonth(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth(); }
-    function isAfter(a,b){ return +a>+b; }
-    function isBefore(a,b){ return +a<+b; }
+    function isAfter(a,b){ return +a>+b; } function isBefore(a,b){ return +a<+b; }
+    function getColorFor(name){ return COLORS[name] || COLORS['Muu']; }
+    function gradientFor(names){ const colors = names.map(getColorFor); if(colors.length<=1) return colors[0]||'#888'; const step=100/colors.length; const parts=colors.map((c,i)=>`${c} ${Math.round(i*step)}%, ${c} ${Math.round((i+1)*step)}%`); return `linear-gradient(90deg, ${parts.join(', ')})`; }
+    function joinedLabel(names){ return names.join('+'); }
 
-    function colorForName(name){
-      let hash=0; for(let i=0;i<name.length;i++) hash=(hash*31+name.charCodeAt(i))>>>0;
-      const hue=hash%360; return `hsl(${hue} 65% 50%)`;
-    }
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+    auth.signInAnonymously().then(()=>{$('#authHint').textContent='Synkronoitu – anonyymi kirjautuminen OK'}).catch(e=>{$('#authHint').textContent='Kirjautuminen epäonnistui: '+e.message});
 
-    // --- Data ---
-    /** @type {{id:string,name:string,startDate:string,recurrence:'once'|'weekly'|'monthly'|'range',rangeEnd?:string,note:string}[]} */
-    let events=[];
+    const col = db.collection('events');
+    let events=[], listAnchorISO = toISO(addDays(new Date(), -2)), monthRef = startOfMonth(new Date());
 
-    function load(){ try{ const raw=localStorage.getItem(LS_KEY); events=raw?JSON.parse(raw):[] }catch{ events=[] } }
-    function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(events)) }catch{} }
+    function occursOnDate(base, dayISO){ const start=fromISO(base.startDate), day=fromISO(dayISO); if(base.recurrence!=='range' && isBefore(day,start)) return false;
+      switch(base.recurrence){ case 'once': return isSameDay(start,day); case 'weekly': return start.getDay()===day.getDay() && !isBefore(day,start); case 'monthly': { const want=Math.min(start.getDate(), endOfMonth(day).getDate()); return want===day.getDate() && !isBefore(day,start); } case 'range': { const end=fromISO(base.rangeEnd||base.startDate); const s=new Date(start.getFullYear(),start.getMonth(),start.getDate()); const e=new Date(end.getFullYear(),end.getMonth(),end.getDate()); const d0=new Date(day.getFullYear(),day.getMonth(),day.getDate()); return (d0>=s && d0<=e); } } }
+    function occurrencesForRange(bases, startISO, endISO){ const out=[]; let cur=fromISO(startISO); const end=fromISO(endISO); while(!isAfter(cur,end)){ const iso=toISO(cur); for(const b of bases){ if(occursOnDate(b, iso)) out.push({baseId:b.id, date:iso, names:b.names, note:b.note}); } cur=addDays(cur,1); } return out; }
 
-    // --- Recurrence helpers ---
-    function occursOnDate(base, dayISO){
-      const start=fromISO(base.startDate);
-      const day=fromISO(dayISO);
-      if(base.recurrence!=='range' && isBefore(day,start)) return false;
-      switch(base.recurrence){
-        case 'once': return isSameDay(start,day);
-        case 'weekly': return start.getDay()===day.getDay() && !isBefore(day,start);
-        case 'monthly': {
-          const want=Math.min(start.getDate(), endOfMonth(day).getDate());
-          return want===day.getDate() && !isBefore(day,start);
-        }
-        case 'range': {
-          const end=fromISO(base.rangeEnd || base.startDate);
-          const s=new Date(start.getFullYear(), start.getMonth(), start.getDate());
-          const e=new Date(end.getFullYear(), end.getMonth(), end.getDate());
-          const d0=new Date(day.getFullYear(), day.getMonth(), day.getDate());
-          return (d0>=s && d0<=e);
-        }
-      }
-    }
+    function renderRules(){ const box=$('#rules'); box.innerHTML=''; $('#ruleCount').textContent=String(events.length);
+      for(const e of events){ const el=document.createElement('div'); el.className='rule'; const info=document.createElement('div');
+        const dots=e.names.slice(0,5).map(n=>`<span class="swatch" title="${n}" style="background:${getColorFor(n)}"></span>`).join('');
+        info.innerHTML=`<div style="font-weight:600;display:flex;align-items:center;gap:8px"><span class="colors">${dots}</span>${joinedLabel(e.names)}</div>
+          <div class="muted">${fmt(fromISO(e.startDate))}${e.recurrence==='once'?' • kertaluontainen':''}${e.recurrence==='weekly'?' • viikoittain':''}${e.recurrence==='monthly'?' • kuukausittain':''}${e.recurrence==='range'?' • '+fmt(fromISO(e.startDate))+'–'+fmt(fromISO(e.rangeEnd||e.startDate)):''}</div>
+          ${e.note?`<div style="margin-top:4px">${e.note}</div>`:''}`;
+        const del=document.createElement('button'); del.className='iconbtn'; del.title='Poista'; del.textContent='🗑'; del.onclick=()=>col.doc(e.id).delete().catch(console.error);
+        el.appendChild(info); el.appendChild(del); box.appendChild(el); } }
+    function renderList(){ const listStart=fromISO(listAnchorISO), listEnd=addDays(listStart,35); $('#listRange').textContent=fmt(listStart)+' – '+fmt(listEnd); const occ=occurrencesForRange(events,toISO(listStart),toISO(listEnd)); const box=$('#listView'); box.innerHTML='';
+      for(let i=0;i<=Math.round((listEnd-listStart)/86400000);i++){ const day=addDays(listStart,i), iso=toISO(day), today=isSameDay(day,new Date()); const row=document.createElement('div'); row.className='day';
+        const left=document.createElement('div'); left.style.display='flex'; left.style.alignItems='center'; left.style.gap='8px';
+        left.innerHTML=`<div style="width:64px;text-align:right;font-weight:600">${['su','ma','ti','ke','to','pe','la'][day.getDay()]} ${day.getDate()}.${day.getMonth()+1}.</div><div class="muted" style="min-width:40px">${today?'(tänään)':''}</div>`;
+        const right=document.createElement('div'); right.style.display='flex'; right.style.flexWrap='wrap'; right.style.gap='8px';
+        const dayOcc=occ.filter(o=>o.date===iso); if(dayOcc.length===0){ const span=document.createElement('span'); span.className='muted'; span.textContent='— ei merkintöjä —'; right.appendChild(span); }
+        for(const o of dayOcc){ const b=document.createElement('button'); b.className='tag'; b.style.background=gradientFor(o.names); const light=o.names.some(n=>getColorFor(n).toLowerCase()==='#fbcfe8'); b.style.color=light && o.names.length===1 ? '#111827' : '#ffffff'; b.textContent=joinedLabel(o.names); b.onclick=()=>openDialog(o); right.appendChild(b); }
+        row.appendChild(left); row.appendChild(right); box.appendChild(row); } }
+    function renderMonth(){ const start=startOfMonth(monthRef), end=endOfMonth(monthRef); $('#monthTitle').textContent=fmt(start,{monthYear:true}); $('#monthPicker').value=toISO(start).slice(0,7); const grid=$('#monthGrid'); grid.innerHTML='';
+      ['Ma','Ti','Ke','To','Pe','La','Su'].forEach(w=>{ const d=document.createElement('div'); d.className='weekday'; d.textContent=w; grid.appendChild(d); });
+      const padStart=((start.getDay()+6)%7); const days=[]; for(let i=0;i<padStart;i++) days.push(addDays(start,-(padStart-i))); let cur=new Date(start); while(!isAfter(cur,end)){ days.push(new Date(cur)); cur=addDays(cur,1); } while(days.length%7!==0) days.push(addDays(end, days.length%7));
+      const occ=occurrencesForRange(events, toISO(days[0]), toISO(days[days.length-1])); const map=occ.reduce((m,o)=>{(m[o.date]||(m[o.date]=[])).push(o); return m;},{});
+      for(const d of days){ const iso=toISO(d); const cell=document.createElement('div'); cell.className='cell'+(isSameMonth(d,monthRef)?'':' off'); const head=document.createElement('div'); head.className='head'; head.innerHTML=`<span style="font-weight:600">${d.getDate()}.</span>${isSameDay(d,new Date())?'<span class="pill">tänään</span>':''}`;
+        const badges=document.createElement('div'); badges.className='badges'; const items=(map[iso]||[]).slice(0,4); if(items.length===0){ const dash=document.createElement('span'); dash.className='muted'; dash.style.fontSize='10px'; dash.textContent='—'; badges.appendChild(dash); }
+        for(const o of items){ const b=document.createElement('button'); b.className='tag'; b.style.fontSize='10px'; b.style.background=gradientFor(o.names); const light=o.names.some(n=>getColorFor(n).toLowerCase()==='#fbcfe8'); b.style.color=light && o.names.length===1 ? '#111827' : '#ffffff'; b.textContent=joinedLabel(o.names); b.title=o.note||joinedLabel(o.names); b.onclick=()=>openDialog(o); badges.appendChild(b); }
+        cell.appendChild(head); cell.appendChild(badges); grid.appendChild(cell); } }
+    function openDialog(o){ const colors=o.names.slice(0,5).map(n=>`<span class="swatch" title="${n}" style="background:${getColorFor(n)}"></span>`).join(''); $('#dlgTitle').innerHTML=`<span class="colors">${colors}</span>${joinedLabel(o.names)}`; $('#dlgDate').textContent=fmt(fromISO(o.date),{weekdayLong:true}); $('#dlgNote').textContent=o.note||'(ei lisätietoja)'; $('#dlgBackdrop').style.display='flex'; }
+    function closeDialog(){ $('#dlgBackdrop').style.display='none'; } $('#dlgClose').onclick=closeDialog; $('#dlgBackdrop').onclick=(e)=>{ if(e.target.id==='dlgBackdrop') closeDialog(); };
 
-    function occurrencesForRange(bases, startISO, endISO){
-      const out=[];
-      let cur=fromISO(startISO);
-      const end=fromISO(endISO);
-      while(!isAfter(cur,end)){
-        const iso=toISO(cur);
-        for(const b of bases){ if(occursOnDate(b, iso)) out.push({baseId:b.id, date:iso, name:b.name, note:b.note}); }
-        cur=addDays(cur,1);
-      }
-      return out;
-    }
+    function selectedNames(){ const sel=document.getElementById('f_names'); const chosen=Array.from(sel.selectedOptions).map(o=>o.value); const names=chosen.filter(n=>n!=='Muu'); if(chosen.includes('Muu')){ const t=(document.getElementById('f_other').value||'').trim(); if(t) names.push(t); else names.push('Muu'); } return names; }
 
-    // --- UI state ---
-    let listAnchorISO = toISO(addDays(new Date(), -2)); // show 2 days back
-    let monthRef = startOfMonth(new Date());
+    document.getElementById('f_rec').addEventListener('change', e => { document.getElementById('f_range_wrap').style.display = e.target.value==='range' ? 'block' : 'none'; });
+    document.getElementById('f_names').addEventListener('change', e => { const chosen = Array.from(e.target.selectedOptions).map(o=>o.value); document.getElementById('otherWrap').classList.toggle('hidden', !chosen.includes('Muu')); });
+    document.getElementById('f_date').value = toISO(new Date());
+    document.getElementById('btnToday').onclick=()=>{ listAnchorISO = toISO(addDays(new Date(), -2)); renderList(); };
+    document.getElementById('btnThisMonth').onclick=()=>{ monthRef = startOfMonth(new Date()); renderMonth(); };
+    document.getElementById('listBack').onclick=()=>{ listAnchorISO = toISO(addDays(fromISO(listAnchorISO), -36)); renderList(); };
+    document.getElementById('listFwd').onclick=()=>{ listAnchorISO = toISO(addDays(fromISO(listAnchorISO), 36)); renderList(); };
+    document.getElementById('monthBack').onclick=()=>{ monthRef = addMonths(monthRef, -1); renderMonth(); };
+    document.getElementById('monthFwd').onclick=()=>{ monthRef = addMonths(monthRef, 1); renderMonth(); };
+    document.getElementById('monthPicker').addEventListener('change', e => { const [y,m]=e.target.value.split('-').map(Number); if(y&&m) monthRef=new Date(y,m-1,1); renderMonth(); });
 
-    // --- Rendering ---
-    function renderRules(){
-      $('#ruleCount').textContent = String(events.length);
-      const box = $('#rules'); box.innerHTML='';
-      for(const e of events){
-        const el = document.createElement('div');
-        el.className='rule';
-        const info = document.createElement('div');
-        info.innerHTML = `<div style="font-weight:600;display:flex;align-items:center;gap:8px">
-            <span style="display:inline-block;width:10px;height:10px;border-radius:999px;background:${colorForName(e.name)}"></span>${e.name}
-          </div>
-          <div class="muted">
-            ${fmt(fromISO(e.startDate))}
-            ${e.recurrence==='once' ? ' • kertaluontainen':''}
-            ${e.recurrence==='weekly' ? ' • viikoittain':''}
-            ${e.recurrence==='monthly' ? ' • kuukausittain':''}
-            ${e.recurrence==='range' ? ' • ' + fmt(fromISO(e.startDate)).replace(/\.\d+\./,' .') + '–' + fmt(fromISO(e.rangeEnd||e.startDate)) : ''}
-          </div>
-          ${e.note ? `<div style="margin-top:4px">${e.note}</div>`:''}`;
-        const del = document.createElement('button');
-        del.className='iconbtn'; del.title='Poista'; del.textContent='🗑';
-        del.onclick = () => { events = events.filter(x=>x.id!==e.id); save(); renderAll(); };
-        el.appendChild(info); el.appendChild(del);
-        box.appendChild(el);
-      }
-    }
+    col.onSnapshot(snap => { events=[]; snap.forEach(doc => { const d=doc.data()||{}; events.push({ id:doc.id, names:d.names||[], startDate:d.startDate, recurrence:d.recurrence, rangeEnd:d.rangeEnd, note:d.note||'' }); }); renderRules(); renderList(); renderMonth(); });
 
-    function renderList(){
-      const listStart = fromISO(listAnchorISO);
-      const listEnd = addDays(listStart, 35);
-      $('#listRange').textContent = fmt(listStart)+' – '+fmt(listEnd);
-      const occ = occurrencesForRange(events, toISO(listStart), toISO(listEnd));
-      const box = $('#listView'); box.innerHTML='';
-
-      for(let i=0;i<=Math.round((listEnd-listStart)/86400000);i++){
-        const day = addDays(listStart, i);
-        const iso = toISO(day);
-        const today = isSameDay(day, new Date());
-        const row = document.createElement('div'); row.className='day';
-        const left = document.createElement('div');
-        left.style.display='flex'; left.style.alignItems='center'; left.style.gap='8px';
-        left.innerHTML = `<div style="width:64px;text-align:right;font-weight:600">${['su','ma','ti','ke','to','pe','la'][day.getDay()]} ${day.getDate()}.${day.getMonth()+1}.</div>
-                          <div class="muted" style="min-width:40px">${today ? '(tänään)':''}</div>`;
-        const right = document.createElement('div'); right.style.display='flex'; right.style.flexWrap='wrap'; right.style.gap='8px';
-        const dayOcc = occ.filter(o=>o.date===iso);
-        if(dayOcc.length===0){ const span=document.createElement('span'); span.className='muted'; span.textContent='— ei merkintöjä —'; right.appendChild(span); }
-        for(const o of dayOcc){
-          const b=document.createElement('button'); b.className='tag'; b.style.background=colorForName(o.name); b.textContent=o.name;
-          b.onclick=()=>openDialog(o); right.appendChild(b);
-        }
-        row.appendChild(left); row.appendChild(right); box.appendChild(row);
-      }
-    }
-
-    function renderMonth(){
-      const start = startOfMonth(monthRef), end=endOfMonth(monthRef);
-      $('#monthTitle').textContent = fmt(start, {monthYear:true});
-      $('#monthPicker').value = toISO(start).slice(0,7);
-      const grid = $('#monthGrid'); grid.innerHTML='';
-      for(const w of uiWeek){ const d=document.createElement('div'); d.className='weekday'; d.textContent=w; grid.appendChild(d); }
-
-      const padStart = ((start.getDay()+6)%7); // make Monday=0
-      const days=[]; for(let i=0;i<padStart;i++) days.push(addDays(start, - (padStart - i)));
-      let cur = new Date(start); while(!isAfter(cur, end)){ days.push(new Date(cur)); cur=addDays(cur,1); }
-      while(days.length % 7 !== 0) days.push(addDays(end, days.length % 7));
-
-      const occ = occurrencesForRange(events, toISO(days[0]), toISO(days[days.length-1]));
-      const map = occ.reduce((m,o)=>{ (m[o.date]||(m[o.date]=[])).push(o); return m; }, {});
-
-      for(const d of days){
-        const iso = toISO(d);
-        const cell = document.createElement('div');
-        cell.className = 'cell' + (isSameMonth(d, monthRef) ? '' : ' off');
-        const head = document.createElement('div'); head.className='head';
-        head.innerHTML = `<span style="font-weight:600">${d.getDate()}.</span>${isSameDay(d,new Date())?'<span class="pill">tänään</span>':''}`;
-        const badges = document.createElement('div'); badges.className='badges';
-        const items = (map[iso]||[]).slice(0,4);
-        if(items.length===0){ const dash=document.createElement('span'); dash.className='muted'; dash.style.fontSize='10px'; dash.textContent='—'; badges.appendChild(dash); }
-        for(const o of items){
-          const b=document.createElement('button'); b.className='tag'; b.style.background=colorForName(o.name); b.style.fontSize='10px'; b.textContent=o.name;
-          b.title=o.note||o.name; b.onclick=()=>openDialog(o); badges.appendChild(b);
-        }
-        cell.appendChild(head); cell.appendChild(badges); grid.appendChild(cell);
-      }
-    }
-
-    function openDialog(o){
-      $('#dlgTitle').innerHTML = `<span style="display:inline-block;width:12px;height:12px;border-radius:999px;background:${colorForName(o.name)};vertical-align:middle;margin-right:6px"></span>${o.name}`;
-      $('#dlgDate').textContent = fmt(fromISO(o.date), {weekdayLong:true});
-      $('#dlgNote').textContent = o.note || '(ei lisätietoja)';
-      $('#dlgBackdrop').style.display='flex';
-    }
-    function closeDialog(){ $('#dlgBackdrop').style.display='none'; }
-
-    function renderAll(){ renderRules(); renderList(); renderMonth(); }
-
-    // --- Init and events ---
-    load();
-    // default date value today
-    $('#f_date').value = toISO(new Date());
-
-    $('#f_rec').addEventListener('change', e => {
-      $('#f_range_wrap').style.display = e.target.value==='range' ? 'block' : 'none';
+    document.getElementById('btnAdd').addEventListener('click', async () => {
+      const names = selectedNames(); const date=$('#f_date').value; const rec=$('#f_rec').value; const rangeEnd=$('#f_end').value; const note=$('#f_note').value.trim();
+      if(names.length===0){ alert('Valitse vähintään yksi nimi (tai Muu).'); return; } if(!date){ alert('Anna aloituspäivä.'); return; }
+      const payload={ names, startDate:date, recurrence:rec, note }; if(rec==='range') payload.rangeEnd = rangeEnd || date;
+      try{ const ref=await col.add(payload); await ref.update({ id: ref.id }); } catch(e){ alert('Tallennus epäonnistui: '+e.message); console.error(e); }
     });
-
-    $('#btnAdd').addEventListener('click', () => {
-      const name = $('#f_name').value.trim();
-      const date = $('#f_date').value;
-      const rec  = $('#f_rec').value;
-      const rangeEnd = $('#f_end').value;
-      const note = $('#f_note').value.trim();
-      if(!name || !date){ alert('Anna vähintään nimi ja aloituspäivä.'); return; }
-      const item = { id: crypto.randomUUID(), name, startDate: date, recurrence: rec, note };
-      if(rec==='range') item.rangeEnd = rangeEnd || date;
-      events = [item, ...events]; save(); renderAll();
-      // optional reset
-      // $('#f_name').value=''; $('#f_note').value='';
-    });
-
-    $('#btnToday').onclick = () => { listAnchorISO = toISO(addDays(new Date(), -2)); renderList(); };
-    $('#btnThisMonth').onclick = () => { monthRef = startOfMonth(new Date()); renderMonth(); };
-
-    $('#listBack').onclick = () => { listAnchorISO = toISO(addDays(fromISO(listAnchorISO), -36)); renderList(); };
-    $('#listFwd').onclick = () => { listAnchorISO = toISO(addDays(fromISO(listAnchorISO), 36)); renderList(); };
-
-    $('#monthBack').onclick = () => { monthRef = addMonths(monthRef, -1); renderMonth(); };
-    $('#monthFwd').onclick = () => { monthRef = addMonths(monthRef, 1); renderMonth(); };
-    $('#monthPicker').addEventListener('change', e => {
-      const [y,m] = e.target.value.split('-').map(Number);
-      if(y && m) monthRef = new Date(y, m-1, 1);
-      renderMonth();
-    });
-
-    $('#dlgClose').onclick = closeDialog;
-    $('#dlgBackdrop').onclick = (e)=>{ if(e.target.id==='dlgBackdrop') closeDialog(); };
-
-    renderAll();
   </script>
 </body>
 </html>
